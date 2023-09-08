@@ -1,0 +1,144 @@
+create database masterdb;
+
+use masterdb;
+
+CREATE TABLE Sellers (
+	SellerId INT PRIMARY KEY,
+	Name NVARCHAR(100) NOT NULL,
+	Location NVARCHAR(100) NOT NULL
+);
+
+INSERT INTO Sellers (SellerId, Name, Location)
+VALUES 	(1, 'Seller A', 'Location A'),
+		(2, 'Seller B', 'Location B'),
+		(3, 'Seller C', 'Location C'),
+		(4, 'Seller D', 'Location D'),
+		(5, 'Seller E', 'Location E'),
+		(6, 'Seller F', 'Location F'),
+		(7, 'Seller G', 'Location G'),
+		(8, 'Seller H', 'Location H'),
+		(9, 'Seller I', 'Location I'),
+		(10, 'Seller J', 'Location J');
+
+CREATE TABLE Books (
+	BookId INT PRIMARY KEY,
+	Title NVARCHAR(100) NOT NULL,
+	Author NVARCHAR(50) NOT NULL,
+	Price DECIMAL(10, 2) NOT NULL,
+	SellerId INT NOT NULL,
+	CONSTRAINT FK_Books_Sellers FOREIGN KEY (SellerId) REFERENCES
+	Sellers(SellerId)
+);
+
+INSERT INTO Books (BookId, Title, Author, Price, SellerId)
+VALUES 	(1, 'Book 1', 'Author A', 19.99, 1),
+		(2, 'Book 2', 'Author B', 15.50, 2),
+		(3, 'Book 3', 'Author C', 12.99, 3),
+		(4, 'Book 4', 'Author D', 9.99, 4),
+		(5, 'Book 5', 'Author E', 14.95, 5),
+		(6, 'Book 6', 'Author F', 21.75, 6),
+		(7, 'Book 7', 'Author G', 18.99, 7),
+		(8, 'Book 8', 'Author H', 17.50, 8),
+		(9, 'Book 9', 'Author I', 11.99, 9),
+		(10, 'Book 10', 'Author J', 16.99, 10);
+
+CREATE TABLE Customers (
+	CustomerId INT PRIMARY KEY,
+	Username NVARCHAR(50) NOT NULL,
+	Password NVARCHAR(100) NOT NULL
+);
+
+INSERT INTO Customers (CustomerId, Username, Password)
+VALUES 	(1, 'customer1', 'password1'),
+		(2, 'customer2', 'password2'),
+		(3, 'customer3', 'password3'),
+		(4, 'customer4', 'password4'),
+		(5, 'customer5', 'password5'),
+		(6, 'customer6', 'password6'),
+		(7, 'customer7', 'password7'),
+		(8, 'customer8', 'password8'),
+		(9, 'customer9', 'password9'),
+		(10, 'customer10', 'password10');
+
+CREATE PROCEDURE dbo.sp_signup  
+@uname nvarchar(30),
+@pwd nvarchar(30)
+AS
+begin
+	declare @cid int = 0;
+	if not exists(select customerid from Customers where Username= @uname)
+		begin
+			set @cid = (select MAX(customerid) + 1 from Customers);
+			
+			INSERT INTO Customers (CustomerId, Username, Password)
+			VALUES (@cid, @uname, @pwd)
+		end
+	select @cid;
+end
+GO
+
+CREATE PROCEDURE dbo.sp_signin 
+@uname nvarchar(30),
+@pwd nvarchar(30)
+AS
+begin
+	select * FROM Customers where Username = @uname and Password = @pwd
+end
+GO
+
+alter table dbo.Sellers
+add offerStatus int 
+DEFAULT 0 NOT NULL
+
+create table TrackMaster(
+	BookId INT NOT NULL,
+	CustomerId INT NOT NULL,
+	CONSTRAINT FK_TrackMaster_Books FOREIGN KEY (BookId) REFERENCES
+	Books(BookId),
+	CONSTRAINT FK_TrackMaster_Customers FOREIGN KEY (CustomerId) REFERENCES
+	Customers(CustomerId)
+)
+
+create PROCEDURE dbo.sp_updateofferstatus
+@username varchar(200),
+@bookid int,
+@offerstatus int
+AS
+begin
+	declare 
+	@sellerId int,
+	@customerId int; 
+	set @sellerId = (select top 1 SellerId from dbo.Books where BookId = @bookid)
+	set @customerId = (select top 1 CustomerId from dbo.Customers where Username = @username)
+	
+	if not exists(select 1 from TrackMaster where BookId = @bookid)
+		begin
+			update dbo.Sellers
+			set offerstatus = @offerstatus
+			where SellerId =@sellerId;
+			
+			if(@customerId is not null)
+			insert into TrackMaster(BookId,CustomerId)
+			values(@bookid ,@customerId);
+			
+			select @offerstatus;
+		end
+	else
+		begin
+			select @offerstatus;
+		end
+	
+end
+GO
+
+create PROCEDURE dbo.sp_getofferstatus
+@bookid int
+AS
+begin
+	declare @sellerId int
+	set @sellerId = (select top 1 SellerId from dbo.Books where BookId = @bookid);
+
+	select top 1 offerstatus from dbo.Sellers
+	where SellerId =@sellerId;
+end
+GO
